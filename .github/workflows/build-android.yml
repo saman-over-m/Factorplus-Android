@@ -1,4 +1,4 @@
-name: Build Factor Plus Android APK
+name: Build Factor Plus Android
 
 on:
   workflow_dispatch:
@@ -28,19 +28,53 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Build Debug APK
-        working-directory: android_project
-        run: gradle assembleDebug --no-daemon
+      - name: Detect Android project
+        shell: bash
+        run: |
+          if [ -f "settings.gradle" ]; then
+            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
+            echo "Android project found in repository root"
+          elif [ -f "android_project/settings.gradle" ]; then
+            echo "PROJECT_DIR=android_project" >> "$GITHUB_ENV"
+            echo "Android project found in android_project/"
+          else
+            echo "ERROR: settings.gradle not found"
+            echo "Repository contents:"
+            find . -maxdepth 3 -type f | sort
+            exit 1
+          fi
+
+      - name: Build APK
+        shell: bash
+        run: |
+          echo "Building from: $PROJECT_DIR"
+          gradle -p "$PROJECT_DIR" assembleDebug --no-daemon
 
       - name: Verify APK
+        shell: bash
         run: |
-          test -f android_project/app/build/outputs/apk/debug/app-debug.apk
-          ls -lh android_project/app/build/outputs/apk/debug/app-debug.apk
+          APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK was not generated"
+            find "$PROJECT_DIR/app/build" -type f 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "APK successfully created:"
+          ls -lh "$APK"
+
+      - name: Prepare APK artifact
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp "$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" \
+             artifacts/FactorPlus-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: FactorPlus-Android-APK
-          path: android_project/app/build/outputs/apk/debug/app-debug.apk
+          path: artifacts/FactorPlus-debug.apk
           if-no-files-found: error
           retention-days: 30
