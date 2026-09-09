@@ -27,6 +27,7 @@ import java.io.IOException;
 
 public class MainActivity extends Activity {
     private WebView webView;
+    private ValueCallback<Uri[]> fileCallback;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
